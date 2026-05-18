@@ -10,7 +10,7 @@
 
 services:
   recorder:
-    image: ${DMRLOGGER_IMAGE:-ghcr.io/your-github-user/dmrlogger:latest}
+    image: ${DMRLOGGER_IMAGE:-ghcr.io/hamoneria/dmrlogger:latest}
     restart: unless-stopped
     environment:
       BM_MASTER: ${BM_MASTER:-2503.master.brandmeister.network}
@@ -37,7 +37,7 @@ services:
       start_period: 2m
 
   poster:
-    image: ${DMRLOGGER_IMAGE:-ghcr.io/your-github-user/dmrlogger:latest}
+    image: ${DMRLOGGER_IMAGE:-ghcr.io/hamoneria/dmrlogger:latest}
     restart: unless-stopped
     depends_on:
       - recorder
@@ -66,7 +66,7 @@ services:
 
 
   summary:
-    image: ${DMRLOGGER_IMAGE:-ghcr.io/your-github-user/dmrlogger:latest}
+    image: ${DMRLOGGER_IMAGE:-ghcr.io/hamoneria/dmrlogger:latest}
     restart: unless-stopped
     profiles: ["summary"]
     depends_on:
@@ -102,7 +102,7 @@ services:
       start_period: 2m
 
   cleanup:
-    image: ${DMRLOGGER_IMAGE:-ghcr.io/your-github-user/dmrlogger:latest}
+    image: ${DMRLOGGER_IMAGE:-ghcr.io/hamoneria/dmrlogger:latest}
     restart: unless-stopped
     profiles: ["cleanup"]
     environment:
