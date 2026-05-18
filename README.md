@@ -70,17 +70,23 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv run python -c "import faster_whisper; print('ok')"
 ```
 
-## Installation
+## Bare-metal installation (without Docker)
+
+This mode runs directly on the host. You install system packages, build the small
+AMBE decoder binary, and run the recorder/poster shell wrappers from the git
+checkout.
 
 ```bash
-git clone https://github.com/your-name/dmrlogger.git
-cd dmrlogger
+git clone https://github.com/hamoneria/DMRLogger.git
+cd DMRLogger
 cp .env.example .env
 cp configs/bm_direct_routes.example.json configs/bm_direct_routes.json
 make
 ```
 
-Edit `.env` and `configs/bm_direct_routes.json` before running.
+Edit `.env` and `configs/bm_direct_routes.json` before running. At minimum, set
+`BM_RADIO_ID`, `BM_HOTSPOT_PASSWORD`, `BM_DIRECT_TELEGRAM_BOT_TOKEN`, and the
+Telegram destination/chat/topic values used by your route config.
 
 ## Configuration
 
@@ -258,11 +264,10 @@ cd dmrlogger
 Download or copy these files from the repository:
 
 ```bash
-# Replace <user> with the GitHub owner after publication.
-curl -O https://raw.githubusercontent.com/<user>/dmrlogger/main/.env.example
-curl -O https://raw.githubusercontent.com/<user>/dmrlogger/main/docker-compose.example.yml
+curl -O https://raw.githubusercontent.com/hamoneria/DMRLogger/main/.env.example
+curl -O https://raw.githubusercontent.com/hamoneria/DMRLogger/main/docker-compose.example.yml
 mkdir -p configs
-curl -o configs/bm_direct_routes.example.json   https://raw.githubusercontent.com/<user>/dmrlogger/main/configs/bm_direct_routes.example.json
+curl -o configs/bm_direct_routes.example.json   https://raw.githubusercontent.com/hamoneria/DMRLogger/main/configs/bm_direct_routes.example.json
 ```
 
 Prepare local config files:
@@ -277,7 +282,7 @@ nano configs/bm_direct_routes.json
 Set the image name in `.env` if needed:
 
 ```bash
-DMRLOGGER_IMAGE=ghcr.io/<user>/dmrlogger:latest
+DMRLOGGER_IMAGE=ghcr.io/hamoneria/dmrlogger:latest
 ```
 
 Start recorder and poster:
@@ -394,14 +399,14 @@ Poster/transcriber:
 For one-shot/manual runs:
 
 ```bash
-uv run bm_hbp_recorder.py \
+uv run python bm_hbp_recorder.py \
   --master "$BM_MASTER" \
   --radio-id "$BM_RADIO_ID" \
   --routes-config configs/bm_direct_routes.json \
   --out-dir recordings \
   --duration 300
 
-uv run post_direct_recordings_telegram.py \
+uv run python post_direct_recordings_telegram.py \
   --recordings-dir recordings \
   --routes-config configs/bm_direct_routes.json \
   --state-file state/bm_direct_dmrlogs_state.json \

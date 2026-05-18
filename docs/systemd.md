@@ -25,7 +25,7 @@ Install code and build the decoder:
 
 ```bash
 cd /opt/dmrlogger
-sudo -u bm-dmr git clone https://github.com/your-name/dmrlogger.git .
+sudo -u bm-dmr git clone https://github.com/hamoneria/DMRLogger.git .
 sudo apt-get install -y python3 gcc make ffmpeg libmbe-dev
 sudo -u bm-dmr /usr/bin/make
 sudo -u bm-dmr uv run python -c "import faster_whisper; print('ok')"
