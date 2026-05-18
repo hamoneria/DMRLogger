@@ -1,0 +1,45 @@
+{
+  "config_version": 1,
+  "telegram": {
+    "bot_token_env": "BM_DIRECT_TELEGRAM_BOT_TOKEN"
+  },
+  "posting": {
+    "enabled": true,
+    "default_mode": "channels",
+    "add_hashtags": false
+  },
+  "summary": {
+    "enabled": true,
+    "mode": "per_route",
+    "interval": "24h",
+    "at": "09:00",
+    "timezone": "Europe/Moscow",
+    "pin": false,
+    "unpin_previous": false
+  },
+  "peers": [
+    {
+      "radio_id": 123456789,
+      "groups": [
+        {
+          "tg": 2501,
+          "slot": 1,
+          "label": "TG2501",
+          "destination": {
+            "type": "chat",
+            "chat_id_env": "TELEGRAM_CHAT_ID_TG2501"
+          }
+        },
+        {
+          "tg": 250812,
+          "slot": 2,
+          "label": "TG250812",
+          "destination": {
+            "type": "chat",
+            "chat_id_env": "TELEGRAM_CHAT_ID_TG250812"
+          }
+        }
+      ]
+    }
+  ]
+}

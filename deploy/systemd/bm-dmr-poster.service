@@ -1,0 +1,28 @@
+[Unit]
+Description=BrandMeister DMR Telegram poster/transcriber
+Documentation=file:/opt/dmrlogger/docs/systemd.md
+After=network-online.target bm-dmr-recorder.service
+Wants=network-online.target bm-dmr-recorder.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=bm-dmr
+Group=bm-dmr
+WorkingDirectory=/opt/dmrlogger
+EnvironmentFile=/etc/dmrlogger.env
+ExecStartPre=/usr/bin/python3 /opt/dmrlogger/healthcheck.py --component poster --no-heartbeat
+ExecStart=/opt/dmrlogger/run_direct_poster.sh
+Restart=always
+RestartSec=10
+TimeoutStopSec=60
+KillMode=control-group
+RestartForceExitStatus=124
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/dmrlogger
+
+[Install]
+WantedBy=multi-user.target

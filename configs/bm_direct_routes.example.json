@@ -1,0 +1,62 @@
+{
+  "config_version": 1,
+  "telegram": {
+    "bot_token_env": "BM_DIRECT_TELEGRAM_BOT_TOKEN",
+    "default_chat_id_env": "TELEGRAM_CHAT_ID",
+    "chat_id_env": "TELEGRAM_CHAT_ID",
+    "public_url": "https://t.me/your_group_or_channel"
+  },
+  "posting": {
+    "enabled": true,
+    "default_mode": "topics",
+    "add_hashtags": false,
+    "send_audio": true,
+    "send_transcript": true
+  },
+  "summary": {
+    "enabled": false,
+    "mode": "per_route",
+    "interval": "24h",
+    "at": "09:00",
+    "timezone": "Europe/Moscow",
+    "pin": true,
+    "unpin_previous": true,
+    "use_llm": true,
+    "fallback": true
+  },
+  "peers": [
+    {
+      "radio_id": 123456789,
+      "groups": [
+        {
+          "tg": 2501,
+          "slot": 1,
+          "label": "TG2501",
+          "hashtag": "#TG2501",
+          "destination": {
+            "type": "topic",
+            "chat_id_env": "TELEGRAM_CHAT_ID",
+            "message_thread_id": 2
+          },
+          "summary": {
+            "enabled": true
+          }
+        },
+        {
+          "tg": 250812,
+          "slot": 2,
+          "label": "TG250812",
+          "hashtag": "#TG250812",
+          "destination": {
+            "type": "topic",
+            "chat_id_env": "TELEGRAM_CHAT_ID",
+            "message_thread_id": 3
+          },
+          "summary": {
+            "enabled": true
+          }
+        }
+      ]
+    }
+  ]
+}

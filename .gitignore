@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.cache/
+
+# Local env/secrets
+.env
+*.env
+secrets.*
+
+
+# Local production configs
+bm_direct_routes.json
+configs/bm_direct_routes.json
+!configs/*.example.json
+
+# Runtime logs/state
+logs/
+*.log
+state/
+*.sqlite
+*.db
+
+# Recordings/media artifacts
+recordings/
+brandmeister-direct-recordings*/
+*.dmrd
+*.ambe33
+*.wav
+*.mp3
+*.ogg
+
+# Generated transcripts next to recordings
+*.transcript.txt
+
+# Local compiled artifacts
+/dmr_ambe33_to_wav
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,18 @@
+[Unit]
+Description=BrandMeister DMR recording retention cleanup
+Documentation=file:/opt/dmrlogger/docs/systemd.md
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=bm-dmr
+Group=bm-dmr
+WorkingDirectory=/opt/dmrlogger
+EnvironmentFile=/etc/dmrlogger.env
+ExecStart=/opt/dmrlogger/run_cleanup.sh
+Environment=BM_CLEANUP_ONCE=1
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/dmrlogger

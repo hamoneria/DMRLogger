@@ -1,0 +1,119 @@
+# Production-style compose file for the published image.
+#
+# Usage:
+#   cp .env.example .env
+#   cp configs/bm_direct_routes.example.json configs/bm_direct_routes.json
+#   docker compose -f docker-compose.example.yml up -d
+#
+# This file intentionally uses an image, not `build: .`, so normal users do not
+# need compilers, Python, mbelib, or Whisper model downloads on their host.
+
+services:
+  recorder:
+    image: ${DMRLOGGER_IMAGE:-ghcr.io/your-github-user/dmrlogger:latest}
+    restart: unless-stopped
+    environment:
+      BM_MASTER: ${BM_MASTER:-2503.master.brandmeister.network}
+      BM_PORT: ${BM_PORT:-62031}
+      BM_RADIO_ID: ${BM_RADIO_ID:?set BM_RADIO_ID in .env}
+      BM_HOTSPOT_PASSWORD: ${BM_HOTSPOT_PASSWORD:?set BM_HOTSPOT_PASSWORD in .env}
+      BM_FETCH_PISTAR_PASSWORD: "0"
+      BM_RECORDINGS_DIR: /data/recordings
+      BM_STATE_DIR: /data/state
+      BM_LOG_DIR: /data/logs
+      BM_RECORDER_HEARTBEAT_FILE: /data/state/recorder.heartbeat.json
+      BM_RECORDER_MAX_STALE_SECONDS: ${BM_RECORDER_MAX_STALE_SECONDS:-180}
+      BM_ROUTES_CONFIG: /config/bm_direct_routes.json
+      BM_AMBE_DECODER: /app/dmr_ambe33_to_wav
+    volumes:
+      - ./data:/data
+      - ./configs/bm_direct_routes.json:/config/bm_direct_routes.json:ro
+    command: ["./run_direct_recorder.sh"]
+    healthcheck:
+      test: ["CMD", "python3", "healthcheck.py", "--component", "recorder", "--heartbeat-file", "/data/state/recorder.heartbeat.json", "--max-heartbeat-age", "180"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 2m
+
+  poster:
+    image: ${DMRLOGGER_IMAGE:-ghcr.io/your-github-user/dmrlogger:latest}
+    restart: unless-stopped
+    depends_on:
+      - recorder
+    environment:
+      BM_DIRECT_TELEGRAM_BOT_TOKEN: ${BM_DIRECT_TELEGRAM_BOT_TOKEN:?set BM_DIRECT_TELEGRAM_BOT_TOKEN in .env}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?set TELEGRAM_CHAT_ID in .env}
+      BM_RECORDINGS_DIR: /data/recordings
+      BM_STATE_DIR: /data/state
+      BM_LOG_DIR: /data/logs
+      BM_POSTER_HEARTBEAT_FILE: /data/state/poster.heartbeat.json
+      BM_POSTER_MAX_STALE_SECONDS: ${BM_POSTER_MAX_STALE_SECONDS:-900}
+      BM_ROUTES_CONFIG: /config/bm_direct_routes.json
+      BM_POSTER_STATE_FILE: ${BM_POSTER_STATE_FILE:-/data/state/bm_direct_dmrlogs_state.json}
+      BM_AMBE_DECODER: /app/dmr_ambe33_to_wav
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+    volumes:
+      - ./data:/data
+      - ./configs/bm_direct_routes.json:/config/bm_direct_routes.json:ro
+    command: ["./run_direct_poster.sh"]
+    healthcheck:
+      test: ["CMD", "python3", "healthcheck.py", "--component", "poster", "--heartbeat-file", "/data/state/poster.heartbeat.json", "--max-heartbeat-age", "900"]
+      interval: 1m
+      timeout: 30s
+      retries: 3
+      start_period: 3m
+
+
+  summary:
+    image: ${DMRLOGGER_IMAGE:-ghcr.io/your-github-user/dmrlogger:latest}
+    restart: unless-stopped
+    profiles: ["summary"]
+    depends_on:
+      - poster
+    environment:
+      BM_DIRECT_TELEGRAM_BOT_TOKEN: ${BM_DIRECT_TELEGRAM_BOT_TOKEN:?set BM_DIRECT_TELEGRAM_BOT_TOKEN in .env}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
+      BM_SUMMARY_PROVIDER: ${BM_SUMMARY_PROVIDER:-gemini}
+      BM_RECORDINGS_DIR: /data/recordings
+      BM_STATE_DIR: /data/state
+      BM_ROUTES_CONFIG: /config/bm_direct_routes.json
+      BM_POSTER_STATE_FILE: ${BM_POSTER_STATE_FILE:-/data/state/bm_direct_dmrlogs_state.json}
+      BM_DAILY_SUMMARY_STATE: /data/state/bm_daily_summary_state.json
+      BM_SUMMARY_HEARTBEAT_FILE: /data/state/summary.heartbeat.json
+      BM_SUMMARY_POST: ${BM_SUMMARY_POST:-0}
+      BM_SUMMARY_INTERVAL_SECONDS: ${BM_SUMMARY_INTERVAL_SECONDS:-86400}
+      BM_SUMMARY_HOURS: ${BM_SUMMARY_HOURS:-24}
+      BM_SUMMARY_ROUTE_KEYS: ${BM_SUMMARY_ROUTE_KEYS:-}
+      BM_SUMMARY_USE_GEMINI: ${BM_SUMMARY_USE_GEMINI:-1}
+    volumes:
+      - ./data:/data
+      - ./configs/bm_direct_routes.json:/config/bm_direct_routes.json:ro
+    command: ["./run_daily_summary.sh"]
+    healthcheck:
+      test: ["CMD", "python3", "healthcheck.py", "--component", "summary", "--heartbeat-file", "/data/state/summary.heartbeat.json", "--max-heartbeat-age", "90000"]
+      interval: 5m
+      timeout: 30s
+      retries: 2
+      start_period: 2m
+
+  cleanup:
+    image: ${DMRLOGGER_IMAGE:-ghcr.io/your-github-user/dmrlogger:latest}
+    restart: unless-stopped
+    profiles: ["cleanup"]
+    environment:
+      BM_RECORDINGS_DIR: /data/recordings
+      BM_STATE_DIR: /data/state
+      BM_LOG_DIR: /data/logs
+      BM_RETENTION_DAYS: ${BM_RETENTION_DAYS:-14}
+      BM_RETENTION_MAX_BYTES: ${BM_RETENTION_MAX_BYTES:-5G}
+      BM_RETENTION_MIN_FREE_BYTES: ${BM_RETENTION_MIN_FREE_BYTES:-1G}
+      BM_RETENTION_DRY_RUN: ${BM_RETENTION_DRY_RUN:-0}
+      BM_CLEANUP_INTERVAL_SECONDS: ${BM_CLEANUP_INTERVAL_SECONDS:-3600}
+    volumes:
+      - ./data:/data
+    command: ["./run_cleanup.sh"]
