@@ -11,7 +11,7 @@
     "default_mode": "topics",
     "add_hashtags": false,
     "send_audio": true,
-    "send_transcript": true,
+    "send_transcript": false,
     "language": "ru"
   },
   "summary": {

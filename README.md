@@ -165,6 +165,25 @@ BM_SUMMARY_LANGUAGE=ru
 Use `posting.language` for per-recording audio captions/transcript posts and
 `summary.language` for daily LLM prompts and stats-only fallback summaries.
 
+### Keeping transcripts local
+
+By default the poster transcribes recordings and sends a separate Telegram text
+message with the transcript. If the ASR model is too weak/noisy for public
+posting, keep transcription enabled for archives and daily summaries but disable
+public transcript messages:
+
+```json
+"posting": {
+  "enabled": true,
+  "send_audio": true,
+  "send_transcript": false
+}
+```
+
+With `send_transcript=false`, DMRLogger still writes adjacent `.txt` transcript
+files and includes them in daily summary collection; it only skips the public
+Telegram `sendMessage` step for the transcript.
+
 4. **Local-only / disabled posting**:
 
 ```json

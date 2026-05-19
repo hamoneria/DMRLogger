@@ -1,3 +1,4 @@
+import argparse
 import importlib.util
 import os
 from pathlib import Path
@@ -258,3 +259,57 @@ def test_unknown_future_publisher_provider_is_not_misrouted_to_telegram(monkeypa
     assert dest["type"] == "unsupported"
     assert dest["provider"] == "discord"
     assert dest["chat_id"] == ""
+
+
+def test_send_transcript_false_saves_transcript_but_does_not_post_text(monkeypatch, tmp_path):
+    meta_path = tmp_path / "recording.json"
+    mp3 = tmp_path / "recording.mp3"
+    txt = tmp_path / "recording.txt"
+    mp3.write_bytes(b"mp3")
+    meta_path.write_text(
+        '{"talkgroup": 2501, "slot": 1, "rf_src": 2500001, "approx_audio_seconds": 4.0}',
+        encoding="utf-8",
+    )
+    cfg = {
+        "telegram": {"default_chat_id": "-100test"},
+        "posting": {"enabled": True, "send_transcript": False},
+        "peers": [{"radio_id": 1, "groups": [{"tg": 2501, "slot": 1, "label": "TG2501"}]}],
+    }
+    telegram_cfg, route_map = poster.parse_routes_config(cfg)
+    state = {}
+    calls = []
+
+    def fake_ensure_media(path, args):
+        txt.write_text("кривая расшифровка, но нужна для summary\n", encoding="utf-8")
+        meta = poster.load_json(path)
+        meta["mp3_path"] = str(mp3)
+        meta["transcript_path"] = str(txt)
+        poster.save_json(path, meta)
+        return meta, mp3, txt
+
+    def fake_tg_api(token, method, fields, files=None):
+        calls.append((method, dict(fields), files))
+        return {"message_id": len(calls)}
+
+    monkeypatch.setattr(poster, "ensure_media", fake_ensure_media)
+    monkeypatch.setattr(poster, "tg_api", fake_tg_api)
+
+    args = argparse.Namespace(
+        transcribe=True,
+        min_duration=3.0,
+        chat_id="-100fallback",
+        tg="2501",
+        state_file=tmp_path / "state.json",
+    )
+
+    assert poster.process_one(meta_path, args, state, "token", route_map, telegram_cfg, cfg["posting"]) is True
+
+    assert txt.exists()
+    assert [call[0] for call in calls] == ["sendAudio"]
+    entry = state[str(meta_path)]
+    assert entry["audio_message_id"] == 1
+    assert "transcript_message_id" not in entry
+
+    calls.clear()
+    assert poster.process_one(meta_path, args, state, "token", route_map, telegram_cfg, cfg["posting"]) is False
+    assert calls == []

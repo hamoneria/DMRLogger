@@ -172,6 +172,31 @@ def config_value(cfg: dict[str, Any], value_key: str, env_key: str) -> str:
     return ""
 
 
+def bool_value(value: object, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in {"0", "false", "no", "off", "disabled", ""}
+
+
+def should_send_transcript(route: dict[str, Any], posting_cfg: dict[str, Any] | None, transcribe_enabled: bool) -> bool:
+    if not transcribe_enabled:
+        return False
+    cfg = posting_cfg if isinstance(posting_cfg, dict) else route.get("_posting_cfg")
+    if not isinstance(cfg, dict):
+        cfg = {}
+    raw_route_posting = route.get("posting")
+    route_posting: dict[str, Any] = raw_route_posting if isinstance(raw_route_posting, dict) else {}
+    sources: list[dict[str, Any]] = [route_posting, route, cfg]
+    for source in sources:
+        if "send_transcript" in source:
+            return bool_value(source.get("send_transcript"), True)
+        if "post_transcript" in source:
+            return bool_value(source.get("post_transcript"), True)
+    return True
+
+
 def telegram_chat_id(telegram_cfg: dict[str, Any], fallback: str | None) -> str:
     return resolve_telegram_chat_id(telegram_cfg, fallback)
 
@@ -409,8 +434,6 @@ def ignore_existing(args: argparse.Namespace, state: dict[str, Any]) -> int:
 def process_one(meta_path: Path, args: argparse.Namespace, state: dict[str, Any], token: str, route_map: dict[tuple[int, int], dict[str, Any]], telegram_cfg: dict[str, Any] | None = None, posting_cfg: dict[str, Any] | None = None) -> bool:
     key = str(meta_path)
     entry = state.setdefault(key, {})
-    if entry.get("audio_message_id") and (entry.get("transcript_message_id") or not args.transcribe):
-        return False
     if entry.get("skipped"):
         return False
     meta0 = load_json(meta_path)
@@ -419,6 +442,9 @@ def process_one(meta_path: Path, args: argparse.Namespace, state: dict[str, Any]
         return False
     post_language = route_language(route0, posting_cfg or route0.get("_posting_cfg") or {})
     setattr(args, "language", post_language)
+    send_transcript = should_send_transcript(route0, posting_cfg or route0.get("_posting_cfg"), bool(args.transcribe))
+    if entry.get("audio_message_id") and (entry.get("transcript_message_id") or not send_transcript):
+        return False
     dur = float(meta0.get("approx_audio_seconds") or meta0.get("duration_seconds") or 0)
     if dur and dur < args.min_duration:
         entry["skipped"] = True
@@ -432,6 +458,7 @@ def process_one(meta_path: Path, args: argparse.Namespace, state: dict[str, Any]
     save_json(args.state_file, state)
     route = route_for(meta, route_map)
     post_language = route_language(route, posting_cfg or route.get("_posting_cfg") or {})
+    send_transcript = should_send_transcript(route, posting_cfg or route.get("_posting_cfg"), bool(args.transcribe))
     dest = resolve_route_destination(route, telegram_cfg or {}, posting_cfg or route.get("_posting_cfg") or {}, args.chat_id)
     if not dest.get("enabled"):
         entry["skipped"] = True
@@ -467,7 +494,7 @@ def process_one(meta_path: Path, args: argparse.Namespace, state: dict[str, Any]
         entry["operator_name"] = meta.get("operator_name")
         save_json(args.state_file, state)
         print(f"[sent-audio] {mp3} chat_id={chat_id} thread={dest.get('message_thread_id')}", flush=True)
-    if args.transcribe and not entry.get("transcript_message_id"):
+    if send_transcript and not entry.get("transcript_message_id"):
         fields = add_thread({
             "chat_id": chat_id,
             "text": transcript_message(txt, post_language),
