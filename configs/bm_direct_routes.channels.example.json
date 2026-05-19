@@ -6,7 +6,8 @@
   "posting": {
     "enabled": true,
     "default_mode": "channels",
-    "add_hashtags": false
+    "add_hashtags": false,
+    "language": "ru"
   },
   "summary": {
     "enabled": true,
@@ -15,7 +16,8 @@
     "at": "09:00",
     "timezone": "Europe/Moscow",
     "pin": false,
-    "unpin_previous": false
+    "unpin_previous": false,
+    "language": "ru"
   },
   "peers": [
     {

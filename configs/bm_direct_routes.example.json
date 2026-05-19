@@ -11,7 +11,8 @@
     "default_mode": "topics",
     "add_hashtags": false,
     "send_audio": true,
-    "send_transcript": true
+    "send_transcript": true,
+    "language": "ru"
   },
   "summary": {
     "enabled": false,
@@ -22,7 +23,8 @@
     "pin": true,
     "unpin_previous": true,
     "use_llm": true,
-    "fallback": true
+    "fallback": true,
+    "language": "ru"
   },
   "peers": [
     {

@@ -38,6 +38,45 @@ def test_fallback_summary_includes_stats_without_transcript_fragments():
     assert "только статистика" in text
 
 
+def test_english_fallback_summary_uses_english_text():
+    daily = load_daily()
+    payload = {
+        "window": {"hours": 24, "start_msk": "2026-01-01 09:00:00", "end_msk": "2026-01-02 09:00:00"},
+        "routes": {
+            "2501:1": {
+                "label": "TG2501",
+                "count": 2,
+                "total_seconds": 65,
+                "language": "en",
+                "speakers": {"R1ABC / Test (2500001)": {"count": 2, "seconds": 65}},
+                "items": [{"time_msk": "2026-01-01 10:00:00", "speaker": "R1ABC / Test (2500001)", "transcript": "Radio check."}],
+            }
+        },
+    }
+
+    text = daily.fallback_summary(payload, "2501:1")
+
+    assert "transmissions: 2" in text
+    assert "Active stations" in text
+    assert "stats only" in text
+    assert "Передач" not in text
+    assert "Активные корреспонденты" not in text
+
+
+def test_english_summary_prompt_requests_english_output():
+    daily = load_daily()
+    payload = {
+        "window": {"hours": 24},
+        "routes": {"2501:1": {"label": "TG2501", "language": "en", "count": 0, "total_seconds": 0, "items": []}},
+    }
+
+    _route, prompt = daily.summary_prompt(payload, "2501:1")
+
+    assert "Write" in prompt
+    assert "English" in prompt
+    assert "рус" not in prompt.lower()
+
+
 def test_telegram_safe_text_truncates_under_safe_limit():
     daily = load_daily()
     text = daily.telegram_safe_text("x" * 5000)

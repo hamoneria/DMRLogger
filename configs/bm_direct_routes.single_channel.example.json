@@ -7,7 +7,8 @@
   "posting": {
     "enabled": true,
     "default_mode": "single_chat",
-    "add_hashtags": true
+    "add_hashtags": true,
+    "language": "ru"
   },
   "summary": {
     "enabled": true,
@@ -15,7 +16,8 @@
     "interval": "24h",
     "at": "09:00",
     "timezone": "Europe/Moscow",
-    "pin": false
+    "pin": false,
+    "language": "ru"
   },
   "peers": [
     {

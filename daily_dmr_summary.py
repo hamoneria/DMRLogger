@@ -71,6 +71,13 @@ def parse_utc(value: object) -> dt.datetime | None:
         return None
 
 
+def normalize_language(value: object, default: str = "ru") -> str:
+    lang = str(value or default or "ru").strip().lower()
+    if lang in {"en", "eng", "english"}:
+        return "en"
+    return "ru"
+
+
 def parse_routes_config(cfg: dict[str, Any]) -> tuple[dict[str, Any], dict[tuple[int, int], dict[str, Any]], dict[str, Any]]:
     out: dict[tuple[int, int], dict[str, Any]] = {}
     summary_cfg = dict(cfg.get("summary", {}) if isinstance(cfg.get("summary", {}), dict) else {})
@@ -83,9 +90,14 @@ def parse_routes_config(cfg: dict[str, Any]) -> tuple[dict[str, Any], dict[tuple
     summary_cfg.setdefault("unpin_previous", True)
     summary_cfg.setdefault("use_llm", True)
     summary_cfg.setdefault("fallback", True)
+    summary_cfg.setdefault("language", normalize_language(os.getenv("BM_SUMMARY_LANGUAGE", os.getenv("BM_POST_LANGUAGE", "ru"))))
     for peer in cfg.get("peers", []):
         for group in peer.get("groups", []):
             route = dict(group)
+            route_summary = dict(summary_cfg)
+            if isinstance(route.get("summary"), dict):
+                route_summary.update(route["summary"])
+            route.setdefault("language", normalize_language(route.get("language") or route_summary.get("language")))
             out[(int(route["tg"]), int(route["slot"]))] = route
     return cfg.get("telegram", {}), out, summary_cfg
 
@@ -125,6 +137,7 @@ def resolve_route_summary_config(route: dict[str, Any], summary_cfg: dict[str, A
     merged = dict(summary_cfg or {})
     if isinstance(route.get("summary"), dict):
         merged.update(route["summary"])
+    merged["language"] = normalize_language(route.get("language") or merged.get("language"))
     return merged
 
 def speaker(meta: dict[str, Any]) -> str:
@@ -183,6 +196,7 @@ def collect_payload(args: argparse.Namespace) -> dict[str, Any]:
             "slot": slot,
             "label": route.get("label") or f"TG{tg}",
             "message_thread_id": route.get("message_thread_id"),
+            "language": normalize_language(route.get("language")),
             "count": 0,
             "total_seconds": 0.0,
             "speakers": {},
@@ -264,10 +278,14 @@ def collect(args: argparse.Namespace) -> int:
     return 0
 
 
-def seconds_human(seconds: float) -> str:
+def seconds_human(seconds: float, language: str = "ru") -> str:
     seconds = float(seconds or 0)
     minutes = int(seconds // 60)
     rest = int(seconds % 60)
+    if normalize_language(language) == "en":
+        if minutes:
+            return f"{minutes}m {rest}s"
+        return f"{rest}s"
     if minutes:
         return f"{minutes}м {rest}с"
     return f"{rest}с"
@@ -343,13 +361,22 @@ def summary_prompt(payload: dict[str, Any], route_key: str) -> tuple[dict[str, A
     route = payload.get("routes", {}).get(route_key, {})
     if not route:
         return {}, ""
-    prompt = (
-        "Ты пишешь краткое ежедневное summary русскоязычного DMR-эфира для Telegram. "
-        "Не выдумывай темы: опирайся только на transcript/items. Если данных мало, так и скажи. "
-        "Формат: заголовок, 3-6 пунктов что обсуждали, активные корреспонденты, короткая статистика. "
-        "Без внутренних путей файлов. Уложись в 3500 символов.\n\n"
-        + json.dumps({"window": payload.get("window"), "route": route}, ensure_ascii=False)
-    )
+    lang = normalize_language(route.get("language"))
+    if lang == "en":
+        instructions = (
+            "Write a concise daily DMR radio summary in English for Telegram. "
+            "Do not invent topics: rely only on transcript/items. If data is sparse or noisy, say so. "
+            "Format: title, 3-6 bullets about what was discussed, active stations, short statistics. "
+            "Do not include internal file paths. Keep it under 3500 characters.\n\n"
+        )
+    else:
+        instructions = (
+            "Ты пишешь краткое ежедневное summary русскоязычного DMR-эфира для Telegram. "
+            "Не выдумывай темы: опирайся только на transcript/items. Если данных мало, так и скажи. "
+            "Формат: заголовок, 3-6 пунктов что обсуждали, активные корреспонденты, короткая статистика. "
+            "Без внутренних путей файлов. Уложись в 3500 символов.\n\n"
+        )
+    prompt = instructions + json.dumps({"window": payload.get("window"), "route": route}, ensure_ascii=False)
     return route, prompt
 
 
@@ -357,13 +384,28 @@ def fallback_summary(payload: dict[str, Any], route_key: str) -> str:
     route = payload.get("routes", {}).get(route_key, {})
     window = payload.get("window", {})
     label = route.get("label") or route_key
+    lang = normalize_language(route.get("language"))
     count = int(route.get("count") or 0)
     total = float(route.get("total_seconds") or 0)
     speakers = route.get("speakers") or {}
+    if lang == "en":
+        lines = [
+            f"📊 {label}: summary for {window.get('hours', '?')} h",
+            f"MSK period: {window.get('start_msk', '?')} — {window.get('end_msk', '?')}",
+            f"transmissions: {count}, total airtime: {seconds_human(total, lang)}.",
+            "",
+            "LLM summary is disabled or unavailable, so this post contains stats only without transcript fragments.",
+        ]
+        if speakers:
+            lines.append("")
+            lines.append("Active stations:")
+            for name, data in list(speakers.items())[:10]:
+                lines.append(f"- {name}: {data.get('count', 0)} transmissions, {seconds_human(float(data.get('seconds') or 0), lang)}")
+        return telegram_safe_text("\n".join(lines))
     lines = [
         f"📊 {label}: summary за {window.get('hours', '?')} ч",
         f"Период MSK: {window.get('start_msk', '?')} — {window.get('end_msk', '?')}",
-        f"Передач: {count}, суммарно: {seconds_human(total)}.",
+        f"Передач: {count}, суммарно: {seconds_human(total, lang)}.",
         "",
         "LLM-summary отключён или недоступен, поэтому опубликована только статистика без фрагментов разговоров.",
     ]
@@ -371,7 +413,7 @@ def fallback_summary(payload: dict[str, Any], route_key: str) -> str:
         lines.append("")
         lines.append("Активные корреспонденты:")
         for name, data in list(speakers.items())[:10]:
-            lines.append(f"- {name}: {data.get('count', 0)} передач, {seconds_human(float(data.get('seconds') or 0))}")
+            lines.append(f"- {name}: {data.get('count', 0)} передач, {seconds_human(float(data.get('seconds') or 0), lang)}")
     return telegram_safe_text("\n".join(lines))
 
 
@@ -416,7 +458,7 @@ def openrouter_summary(payload: dict[str, Any], route_key: str, model: str) -> s
     body = {
         "model": model,
         "messages": [
-            {"role": "system", "content": "Ты аккуратный редактор ежедневных DMR-сводок на русском языке."},
+            {"role": "system", "content": "You are a careful editor of daily DMR radio summaries." if normalize_language(route.get("language")) == "en" else "Ты аккуратный редактор ежедневных DMR-сводок на русском языке."},
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.2,

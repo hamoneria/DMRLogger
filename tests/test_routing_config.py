@@ -74,6 +74,61 @@ def test_single_chat_hashtag_caption_appends_hashtag_once():
     assert caption.splitlines()[-1] == "#TG2501"
 
 
+def test_english_caption_uses_english_labels_and_units():
+    caption = poster.build_caption(
+        {
+            "talkgroup": 2501,
+            "rf_src": 2500001,
+            "callsign": "R1ABC",
+            "operator_name": "Alice",
+            "operator_city": "Moscow",
+            "operator_country": "Russia",
+            "approx_audio_seconds": 4.2,
+            "started_at_utc": "2026-05-17T12:00:00+00:00",
+        },
+        {"label": "TG2501", "language": "en"},
+    )
+
+    assert "⏱ 4.2 sec" in caption
+    assert "🕒 MSK:" in caption
+    assert "сек" not in caption
+
+
+def test_english_transcript_message_uses_english_header_and_empty_text(tmp_path):
+    missing = tmp_path / "missing.txt"
+
+    text = poster.transcript_message(missing, language="en")
+
+    assert text.startswith("📝 Transcript:")
+    assert "Transcript was not generated." in text
+    assert "Расшифровка" not in text
+
+
+def test_posting_language_is_inherited_from_global_config():
+    cfg = {
+        "posting": {"enabled": True, "language": "en"},
+        "peers": [{"radio_id": 1, "groups": [{"tg": 2501, "slot": 1, "label": "TG2501"}]}],
+    }
+
+    _telegram_cfg, route_map = poster.parse_routes_config(cfg)
+
+    assert route_map[(2501, 1)]["language"] == "en"
+
+
+def test_summary_language_is_inherited_from_global_config():
+    cfg = {
+        "summary": {"enabled": True, "language": "en"},
+        "peers": [{"radio_id": 1, "groups": [{"tg": 2501, "slot": 1, "label": "TG2501"}]}],
+    }
+
+    _telegram_cfg, route_map, summary_cfg = daily.parse_routes_config(cfg)
+    route_summary = daily.resolve_route_summary_config(route_map[(2501, 1)], summary_cfg)
+
+    assert summary_cfg["language"] == "en"
+    assert route_map[(2501, 1)]["language"] == "en"
+    assert route_summary["language"] == "en"
+
+
 def test_destination_none_disables_posting(monkeypatch):
     cfg = {
         "telegram": {"default_chat_id_env": "TELEGRAM_CHAT_ID"},

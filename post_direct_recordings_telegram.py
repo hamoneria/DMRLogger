@@ -58,14 +58,36 @@ def write_heartbeat(path: Path | None, component: str, **fields: Any) -> None:
     save_json(path, payload)
 
 
+def normalize_language(value: object, default: str = "ru") -> str:
+    lang = str(value or default or "ru").strip().lower()
+    if lang in {"en", "eng", "english"}:
+        return "en"
+    return "ru"
+
+
+def route_language(route: dict[str, Any], posting_cfg: dict[str, Any] | None = None) -> str:
+    if not isinstance(posting_cfg, dict):
+        posting_cfg = route.get("_posting_cfg") if isinstance(route.get("_posting_cfg"), dict) else {}
+    return normalize_language(
+        route.get("language")
+        or route.get("post_language")
+        or posting_cfg.get("language")
+        or posting_cfg.get("post_language")
+        or os.getenv("BM_POST_LANGUAGE")
+        or "ru"
+    )
+
+
 def parse_routes_config(cfg: dict[str, Any]) -> tuple[dict[str, Any], dict[tuple[int, int], dict[str, Any]]]:
     route_map: dict[tuple[int, int], dict[str, Any]] = {}
     posting_cfg = cfg.get("posting", {}) if isinstance(cfg.get("posting", {}), dict) else {}
+    posting_cfg.setdefault("language", os.getenv("BM_POST_LANGUAGE", "ru"))
     for peer in cfg.get("peers", []):
         for group in peer.get("groups", []):
             route = dict(group)
             route.setdefault("posting", {})
             route["_posting_cfg"] = dict(posting_cfg)
+            route.setdefault("language", route_language(route, posting_cfg))
             route_map[(int(route["tg"]), int(route["slot"]))] = route
     return cfg.get("telegram", {}), route_map
 
@@ -265,18 +287,23 @@ def location_line(meta: dict[str, Any]) -> str:
     return city or country
 
 
-def transcribe(path: Path, model_name: str) -> str:
+def transcribe(path: Path, model_name: str, language: str = "ru") -> str:
     from faster_whisper import WhisperModel
+    lang = normalize_language(language)
     model = WhisperModel(model_name, device="cpu", compute_type="int8")
     segments, _info = model.transcribe(
         str(path),
-        language="ru",
+        language=lang,
         vad_filter=True,
         beam_size=5,
         condition_on_previous_text=False,
     )
     text = " ".join(seg.text.strip() for seg in segments).strip()
-    return text or "Расшифровка не получилась: речь не распознана или запись слишком шумная/короткая."
+    if text:
+        return text
+    if lang == "en":
+        return "Transcription failed: speech was not recognized or the recording is too noisy/short."
+    return "Расшифровка не получилась: речь не распознана или запись слишком шумная/короткая."
 
 
 def ensure_media(meta_path: Path, args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
@@ -293,7 +320,7 @@ def ensure_media(meta_path: Path, args: argparse.Namespace) -> tuple[dict[str, A
     if not mp3.exists() or mp3.stat().st_mtime < wav.stat().st_mtime:
         run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(wav), "-ar", "16000", "-ac", "1", "-codec:a", "libmp3lame", "-b:a", "48k", str(mp3)])
     if args.transcribe and (not txt.exists() or txt.stat().st_mtime < mp3.stat().st_mtime):
-        txt.write_text(transcribe(mp3, args.model) + "\n", encoding="utf-8")
+        txt.write_text(transcribe(mp3, args.model, getattr(args, "language", "ru")) + "\n", encoding="utf-8")
     meta["wav_path"] = str(wav)
     meta["mp3_path"] = str(mp3)
     if txt.exists():
@@ -318,10 +345,13 @@ def format_msk_time(value: object) -> str:
 
 def build_caption(meta: dict[str, Any], route: dict[str, Any] | None = None) -> str:
     route = route or {}
+    lang = route_language(route)
     dur = meta.get("approx_audio_seconds") or meta.get("duration_seconds") or "?"
     if isinstance(dur, (int, float)):
         dur = f"{float(dur):.1f}"
     label = route.get("label") or meta.get("label") or f"TG{meta.get('talkgroup', '?')}"
+    time_label = "MSK"
+    duration_unit = "sec" if lang == "en" else "сек"
     lines = [
         f"{label}",
         f"👤 {operator_line(meta)}",
@@ -331,8 +361,8 @@ def build_caption(meta: dict[str, Any], route: dict[str, Any] | None = None) -> 
         lines.append(f"📍 {loc}")
     lines.extend([
         f"🆔 DMR ID: {meta.get('rf_src', '?')}",
-        f"⏱ {dur} сек",
-        f"🕒 MSK: {format_msk_time(meta.get('started_at_utc'))}",
+        f"⏱ {dur} {duration_unit}",
+        f"🕒 {time_label}: {format_msk_time(meta.get('started_at_utc'))}",
     ])
     hashtag = str(route.get("hashtag") or "").strip()
     if route.get("add_hashtags") and hashtag and hashtag not in lines:
@@ -344,14 +374,17 @@ def caption(meta: dict[str, Any], route: dict[str, Any] | None = None) -> str:
     return build_caption(meta, route)
 
 
-def transcript_message(txt: Path) -> str:
+def transcript_message(txt: Path, language: str = "ru") -> str:
+    lang = normalize_language(language)
     if txt.exists():
         text = txt.read_text(encoding="utf-8", errors="replace").strip()
     else:
-        text = "Расшифровка не создавалась."
-    out = "📝 Расшифровка:\n\n" + text
+        text = "Transcript was not generated." if lang == "en" else "Расшифровка не создавалась."
+    header = "📝 Transcript:\n\n" if lang == "en" else "📝 Расшифровка:\n\n"
+    out = header + text
     if len(out) > 3900:
-        out = out[:3800].rstrip() + "\n\n…обрезано из-за лимита Telegram."
+        notice = "\n\n…truncated due to Telegram limit." if lang == "en" else "\n\n…обрезано из-за лимита Telegram."
+        out = out[:3800].rstrip() + notice
     return out
 
 
@@ -384,6 +417,8 @@ def process_one(meta_path: Path, args: argparse.Namespace, state: dict[str, Any]
     route0 = route_for(meta0, route_map)
     if route_map and not route0:
         return False
+    post_language = route_language(route0, posting_cfg or route0.get("_posting_cfg") or {})
+    setattr(args, "language", post_language)
     dur = float(meta0.get("approx_audio_seconds") or meta0.get("duration_seconds") or 0)
     if dur and dur < args.min_duration:
         entry["skipped"] = True
@@ -396,6 +431,7 @@ def process_one(meta_path: Path, args: argparse.Namespace, state: dict[str, Any]
     save_json(meta_path, meta)
     save_json(args.state_file, state)
     route = route_for(meta, route_map)
+    post_language = route_language(route, posting_cfg or route.get("_posting_cfg") or {})
     dest = resolve_route_destination(route, telegram_cfg or {}, posting_cfg or route.get("_posting_cfg") or {}, args.chat_id)
     if not dest.get("enabled"):
         entry["skipped"] = True
@@ -434,7 +470,7 @@ def process_one(meta_path: Path, args: argparse.Namespace, state: dict[str, Any]
     if args.transcribe and not entry.get("transcript_message_id"):
         fields = add_thread({
             "chat_id": chat_id,
-            "text": transcript_message(txt),
+            "text": transcript_message(txt, post_language),
         }, dest)
         result = tg_api(token, "sendMessage", fields)
         entry["transcript_message_id"] = result["message_id"]

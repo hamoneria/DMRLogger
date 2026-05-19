@@ -1,5 +1,7 @@
 # DMRLogger
 
+[Русская версия README](README.ru.md)
+
 Self-hosted BrandMeister DMR recorder/transcriber that connects directly to a
 BrandMeister master via the HomeBrew/MMDVM HBP protocol, records configured
 Talkgroups, decodes DMR voice, transcribes speech, enriches metadata, and posts
@@ -20,6 +22,7 @@ results to Telegram topics.
 - Looks up public DMR user metadata via RadioID.net and caches it locally.
 - Posts audio and transcript messages to Telegram group topics.
 - Can collect/post daily statistics and summaries.
+- Supports Russian or English public Telegram captions/transcripts/summaries via configuration.
 
 ## Architecture
 
@@ -135,8 +138,32 @@ Telegram layouts via `destination` in `configs/bm_direct_routes.json`:
 `posting.add_hashtags=true` plus per-route `hashtag` values:
 
 ```json
-"posting": {"enabled": true, "default_mode": "single_chat", "add_hashtags": true}
+"posting": {"enabled": true, "default_mode": "single_chat", "add_hashtags": true, "language": "ru"}
 ```
+
+### Public post language
+
+DMRLogger can publish Telegram captions, transcript headers, Whisper language
+hints, and daily summary prompts/fallback text in Russian or English.
+
+Set the global language in route config:
+
+```json
+"posting": {"enabled": true, "language": "ru"},
+"summary": {"enabled": true, "language": "ru"}
+```
+
+Supported values are `ru` and `en`. Defaults remain `ru` for compatibility.
+A route may override the global value with `"language": "en"` (or legacy alias
+`"post_language": "en"`). Environment defaults are also supported:
+
+```bash
+BM_POST_LANGUAGE=ru
+BM_SUMMARY_LANGUAGE=ru
+```
+
+Use `posting.language` for per-recording audio captions/transcript posts and
+`summary.language` for daily LLM prompts and stats-only fallback summaries.
 
 4. **Local-only / disabled posting**:
 
@@ -165,7 +192,8 @@ Summaries are controlled by the top-level `summary` block and optional per-route
   "pin": true,
   "unpin_previous": true,
   "use_llm": true,
-  "fallback": true
+  "fallback": true,
+  "language": "ru"
 }
 ```
 
