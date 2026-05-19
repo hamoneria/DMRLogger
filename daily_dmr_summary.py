@@ -5,6 +5,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -457,13 +458,34 @@ def summarize(args: argparse.Namespace) -> int:
         if not args.no_gemini:
             try:
                 if provider == "openrouter":
-                    text = openrouter_summary(payload, key, args.openrouter_model)
+                    try:
+                        text = openrouter_summary(payload, key, args.openrouter_model)
+                    except Exception as openrouter_exc:
+                        print(
+                            f"summary provider failure route={key} provider=openrouter: "
+                            f"{type(openrouter_exc).__name__}: {openrouter_exc}",
+                            file=sys.stderr,
+                        )
+                        try:
+                            text = gemini_summary(payload, key, args.gemini_model)
+                        except Exception as gemini_exc:
+                            print(
+                                f"summary provider failure route={key} provider=gemini: "
+                                f"{type(gemini_exc).__name__}: {gemini_exc}",
+                                file=sys.stderr,
+                            )
+                            text = fallback_summary(payload, key)
                 elif provider == "gemini":
                     text = gemini_summary(payload, key, args.gemini_model)
                 else:
                     raise RuntimeError(f"unknown summary provider: {provider}")
             except Exception as exc:
-                text = fallback_summary(payload, key) + f"\n\n_{provider} недоступен: {type(exc).__name__}: {exc}_"
+                print(
+                    f"summary provider failure route={key} provider={provider}: "
+                    f"{type(exc).__name__}: {exc}",
+                    file=sys.stderr,
+                )
+                text = fallback_summary(payload, key)
         if not text:
             text = fallback_summary(payload, key)
         summaries[key] = text
