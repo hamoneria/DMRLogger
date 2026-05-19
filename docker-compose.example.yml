@@ -77,7 +77,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openrouter/free}
       BM_SUMMARY_PROVIDER: ${BM_SUMMARY_PROVIDER:-gemini}
       BM_RECORDINGS_DIR: /data/recordings
       BM_STATE_DIR: /data/state

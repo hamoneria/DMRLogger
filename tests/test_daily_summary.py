@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -147,3 +148,20 @@ def test_llm_failures_do_not_leak_service_errors_into_public_summary(monkeypatch
     assert "Payment Required" not in captured.out
     assert "secret diagnostic detail" not in captured.out
     assert "summary provider failure" in captured.err
+
+
+def test_openrouter_default_model_is_free_router(monkeypatch):
+    daily = load_daily()
+    monkeypatch.delenv("OPENROUTER_MODEL", raising=False)
+    monkeypatch.delenv("BM_SUMMARY_MODEL", raising=False)
+    monkeypatch.setenv("BM_SUMMARY_PROVIDER", "openrouter")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["daily_dmr_summary.py", "summarize", "--routes-config", "routes.json"],
+    )
+
+    args = daily.parse_args()
+
+    assert args.summary_provider == "openrouter"
+    assert args.openrouter_model == "openrouter/free"

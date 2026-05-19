@@ -59,7 +59,7 @@ run_once() {
   )
   base_args+=(--summary-provider "${BM_SUMMARY_PROVIDER:-gemini}")
   base_args+=(--gemini-model "${GEMINI_MODEL:-gemini-2.5-flash}")
-  base_args+=(--openrouter-model "${OPENROUTER_MODEL:-${BM_SUMMARY_MODEL:-google/gemini-2.5-flash}}")
+  base_args+=(--openrouter-model "${OPENROUTER_MODEL:-${BM_SUMMARY_MODEL:-openrouter/free}}")
   if [[ "${BM_SUMMARY_USE_GEMINI:-1}" == "0" ]]; then
     base_args+=(--no-gemini)
   fi

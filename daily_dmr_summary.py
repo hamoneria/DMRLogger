@@ -633,7 +633,7 @@ def parse_args() -> argparse.Namespace:
     z.add_argument("--route-key", default=None, help="Route key as tg:slot, e.g. 2501:1")
     z.add_argument("--summary-provider", default=os.getenv("BM_SUMMARY_PROVIDER", "gemini"), choices=["gemini", "openrouter"])
     z.add_argument("--gemini-model", default=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
-    z.add_argument("--openrouter-model", default=os.getenv("OPENROUTER_MODEL", os.getenv("BM_SUMMARY_MODEL", "google/gemini-2.5-flash")))
+    z.add_argument("--openrouter-model", default=os.getenv("OPENROUTER_MODEL", os.getenv("BM_SUMMARY_MODEL", "openrouter/free")))
     z.add_argument("--output-dir", type=Path, default=None, help="Write summary_<tg>_<slot>.txt files")
     z.add_argument("--no-gemini", action="store_true", help="Force stats-only fallback summary")
     z.set_defaults(func=summarize)
