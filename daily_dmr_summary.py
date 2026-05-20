@@ -5,6 +5,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -349,8 +350,27 @@ def split_telegram_text(text: str, limit: int = TELEGRAM_SAFE_TEXT_LIMIT) -> lis
     return labelled
 
 
+def normalize_summary_plain_text(text: str) -> str:
+    """Convert common LLM Markdown into readable plain Telegram text.
+
+    Summary posts are sent without Telegram parse_mode to avoid parse failures on
+    LLM-generated punctuation, so Markdown markers must not leak publicly.
+    """
+    lines: list[str] = []
+    for raw_line in text.strip().splitlines():
+        line = raw_line.rstrip()
+        line = re.sub(r"^\s*[-*]\s+", "• ", line)
+        line = re.sub(r"\*\*([^*]+)\*\*", r"\1", line)
+        line = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"\1", line)
+        line = re.sub(r"__([^_]+)__", r"\1", line)
+        line = re.sub(r"(?<!_)_([^_\n]+)_(?!_)", r"\1", line)
+        line = re.sub(r"\s{2,}$", "", line)
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
 def validate_llm_summary(text: str, route: dict[str, Any], provider: str) -> str:
-    text = text.strip()
+    text = normalize_summary_plain_text(text)
     count = int(route.get("count") or 0)
     if count and len(text) < 200:
         raise RuntimeError(f"{provider} response too short ({len(text)} chars)")

@@ -85,6 +85,26 @@ def test_telegram_safe_text_truncates_under_safe_limit():
     assert text.endswith("…обрезано из-за лимита Telegram.")
 
 
+def test_llm_summary_markdown_is_normalized_for_plain_telegram_text():
+    daily = load_daily()
+    route = {"label": "TG2501", "count": 0}
+    text = """**Обсуждаемые темы:**
+*   **Техника:** обсуждали DMR.
+- **Антенны:** проверяли связь.
+
+*Короткое примечание.*
+"""
+
+    cleaned = daily.validate_llm_summary(text, route, "Test")
+
+    assert "**" not in cleaned
+    assert "*   " not in cleaned
+    assert cleaned.startswith("Обсуждаемые темы:")
+    assert "• Техника: обсуждали DMR." in cleaned
+    assert "• Антенны: проверяли связь." in cleaned
+    assert "Короткое примечание." in cleaned
+
+
 def test_split_telegram_text_labels_multiple_parts():
     daily = load_daily()
     text = ("first paragraph " * 120) + "\n\n" + ("second paragraph " * 120)
