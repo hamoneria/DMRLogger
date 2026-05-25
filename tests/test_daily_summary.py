@@ -77,6 +77,44 @@ def test_english_summary_prompt_requests_english_output():
     assert "рус" not in prompt.lower()
 
 
+def test_russian_summary_prompt_explains_radio_alphabet_fragments():
+    daily = load_daily()
+    payload = {
+        "window": {"hours": 24},
+        "routes": {
+            "2501:1": {
+                "label": "TG2501",
+                "language": "ru",
+                "count": 1,
+                "total_seconds": 7.2,
+                "items": [{"transcript": "Силлья Борис Трои, Дмитрий Костанин..."}],
+            }
+        },
+    }
+
+    _route, prompt = daily.summary_prompt(payload, "2501:1")
+
+    assert "радиоалфавиту" in prompt
+    assert "позывные" in prompt
+    assert "не людьми" in prompt
+    assert "без выдумывания" in prompt
+
+
+def test_english_summary_prompt_explains_phonetic_spelling_fragments():
+    daily = load_daily()
+    payload = {
+        "window": {"hours": 24},
+        "routes": {"2501:1": {"label": "TG2501", "language": "en", "count": 0, "total_seconds": 0, "items": []}},
+    }
+
+    _route, prompt = daily.summary_prompt(payload, "2501:1")
+
+    assert "radio/phonetic alphabet" in prompt
+    assert "callsigns" in prompt
+    assert "list of names" in prompt
+    assert "spelling letters" in prompt
+
+
 def test_telegram_safe_text_truncates_under_safe_limit():
     daily = load_daily()
     text = daily.telegram_safe_text("x" * 5000)

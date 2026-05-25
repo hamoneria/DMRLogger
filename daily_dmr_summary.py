@@ -384,7 +384,12 @@ def summary_prompt(payload: dict[str, Any], route_key: str) -> tuple[dict[str, A
     lang = normalize_language(route.get("language"))
     if lang == "en":
         instructions = (
-            "Write a concise daily DMR radio summary in English for Telegram. "
+            "Write a concise daily DMR amateur-radio summary in English for Telegram. "
+            "Context: these are ham-radio QSOs, often noisy ASR fragments. Operators frequently spell "
+            "callsigns, names, QTH/location, and technical terms with a radio/phonetic alphabet. "
+            "Words that look like a list of names may actually be spelling letters; do not present them as "
+            "people or topics unless the transcript clearly supports that. If a spelled callsign/location is "
+            "uncertain, say it was spelled phonetically and is unreadable instead of inventing a value. "
             "Do not invent topics: rely only on transcript/items. If data is sparse or noisy, say so. "
             "Format: title, 3-6 bullets about what was discussed, active stations, short statistics. "
             "Do not include internal file paths. Keep it under 3500 characters.\n\n"
@@ -392,6 +397,12 @@ def summary_prompt(payload: dict[str, Any], route_key: str) -> tuple[dict[str, A
     else:
         instructions = (
             "Ты пишешь краткое ежедневное summary русскоязычного DMR-эфира для Telegram. "
+            "Контекст: это радиолюбительские QSO, часто с шумными ASR-фрагментами. Операторы часто "
+            "передают позывные, имена, QTH/место и технические термины по радиоалфавиту. "
+            "Слова, похожие на перечисление имён, могут быть не людьми, а буквами позывного или названия места; "
+            "не выдавай такие цепочки за список корреспондентов или темы, если transcript явно это не подтверждает. "
+            "Если продиктованный по радиоалфавиту позывной/место не удаётся уверенно восстановить, пиши, что "
+            "позывной или место продиктованы по радиоалфавиту, но фрагмент нечитаемый, без выдумывания значения. "
             "Не выдумывай темы: опирайся только на transcript/items. Если данных мало, так и скажи. "
             "Формат: заголовок, 3-6 пунктов что обсуждали, активные корреспонденты, короткая статистика. "
             "Без внутренних путей файлов. Уложись в 3500 символов.\n\n"
